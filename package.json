@@ -1,0 +1,20 @@
+{
+  "name": "bird-ui",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "node server/index.js",
+    "start": "node server/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@steipete/bird": "^0.8.0",
+    "convex": "^1.31.7",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1"
+  }
+}

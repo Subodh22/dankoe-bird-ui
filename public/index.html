@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dankoe Bird</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0c10;
+        --panel: #10131a;
+        --panel-strong: #0f141c;
+        --border: #1f2530;
+        --text: #e5e7eb;
+        --muted: #9aa4b2;
+        --accent: #88a3ff;
+        --accent-strong: #a5b4ff;
+        --success: #6ee7b7;
+        --danger: #fca5a5;
+      }
+      body {
+        font-family: "Inter", "SF Pro Text", "Segoe UI", Arial, sans-serif;
+        margin: 0;
+        color: var(--text);
+        background: radial-gradient(circle at top, #111827 0%, #0b0c10 45%, #0b0c10 100%);
+      }
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 24px 64px;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 28px;
+        letter-spacing: 0.4px;
+      }
+      h2 {
+        margin: 0 0 12px;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .subtitle {
+        color: var(--muted);
+        font-size: 14px;
+        max-width: 720px;
+      }
+      .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 24px;
+      }
+      .brand {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        margin-bottom: 16px;
+        background: linear-gradient(160deg, #0f141d, #0b0c10);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+      .form-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      label {
+        font-weight: 500;
+        margin-right: 6px;
+        color: var(--muted);
+      }
+      input[type="text"],
+      input[type="number"],
+      textarea,
+      select {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        min-width: 220px;
+        background: var(--panel-strong);
+        color: var(--text);
+        outline: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      input:focus,
+      textarea:focus,
+      select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(136, 163, 255, 0.2);
+      }
+      textarea {
+        min-width: 360px;
+        min-height: 120px;
+        resize: vertical;
+      }
+      button {
+        padding: 10px 18px;
+        border-radius: 12px;
+        border: none;
+        background: linear-gradient(135deg, #7f93ff, #9aa9ff);
+        color: #0b0c10;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(136, 163, 255, 0.2);
+      }
+      button:disabled {
+        background: #3b4252;
+        color: #9aa4b2;
+        cursor: not-allowed;
+        box-shadow: none;
+        transform: none;
+      }
+      .secondary {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+        box-shadow: none;
+      }
+      .secondary:hover {
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--panel);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      th {
+        background: #0f172a;
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      tbody tr:hover {
+        background: rgba(136, 163, 255, 0.08);
+      }
+      .status {
+        margin: 16px 0;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .helper {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+      .text-cell {
+        max-width: 520px;
+        white-space: pre-wrap;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="top-bar">
+        <div class="brand">
+          <h1>Dankoe Bird</h1>
+          <p class="subtitle">
+            Quiet analysis for loud timelines. Fetch, filter, and surface the most signal-rich posts.
+          </p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Search</h2>
+        <form id="search-form" class="form-row">
+          <div>
+            <label for="search-query">Query</label>
+            <input id="search-query" type="text" placeholder="from:steipete OR keyword" required />
+            <div class="helper">Search the live feed by query syntax.</div>
+          </div>
+          <div>
+            <label for="search-count">Count</label>
+            <input id="search-count" type="number" min="1" max="100" value="20" />
+          </div>
+          <button id="search-button" type="submit">Run Search</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>User Timeline</h2>
+        <form id="user-form" class="form-row">
+          <div>
+            <label for="user-handle">Handle</label>
+            <input id="user-handle" type="text" placeholder="@steipete" required />
+            <div class="helper">Quick scan of a single profile.</div>
+          </div>
+          <div>
+            <label for="user-count">Count</label>
+            <input id="user-count" type="number" min="1" max="100" value="20" />
+          </div>
+          <button id="user-button" type="submit">Fetch Tweets</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Analyze</h2>
+        <form id="analyze-form" class="form-row">
+          <div>
+            <label for="analyze-mode">Mode</label>
+            <select id="analyze-mode">
+              <option value="fetch">Fetch</option>
+              <option value="outliers">Outliers</option>
+              <option value="matrix">Matrix</option>
+            </select>
+            <div class="helper">Choose how to analyze your cached handles.</div>
+          </div>
+          <div>
+            <label for="analyze-handles">Handles</label>
+            <textarea id="analyze-handles" placeholder="@handle1&#10;@handle2"></textarea>
+            <div class="helper">One handle per line or comma-separated.</div>
+          </div>
+          <div id="analyze-count-field">
+            <label for="analyze-count">Top results</label>
+            <input id="analyze-count" type="number" min="1" max="100" value="20" />
+          </div>
+          <div id="analyze-window-field">
+            <label for="analyze-window">Time window</label>
+            <select id="analyze-window">
+              <option value="24h">Last 24h</option>
+              <option value="7d">Last 7d</option>
+              <option value="30d">Last 30d</option>
+            </select>
+          </div>
+          <div id="analyze-outlier-field">
+            <label for="analyze-outlier-toggle">Show outlier score</label>
+            <input id="analyze-outlier-toggle" type="checkbox" checked />
+          </div>
+          <button id="analyze-button" type="submit">Fetch into Cache</button>
+          <button id="save-handles-button" type="button" class="secondary">Save Handles</button>
+        </form>
+      </div>
+
+      <div class="status" id="status">Ready.</div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Text</th>
+            <th>Author</th>
+            <th>Time</th>
+            <th>Replies</th>
+            <th>Retweets</th>
+            <th>Likes</th>
+            <th>Engagement</th>
+            <th class="outlier-column">Outlier Score</th>
+            <th>Link</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+
+      <script src="app.js"></script>
+    </div>
+  </body>
+</html>
