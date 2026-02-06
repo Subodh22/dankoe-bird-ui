@@ -89,6 +89,16 @@ function median(values) {
   return sorted[mid];
 }
 
+function clampNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeOptionalNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function engagementScore(tweet) {
   return (tweet.likeCount ?? 0) + (tweet.retweetCount ?? 0) + (tweet.replyCount ?? 0);
 }
@@ -279,6 +289,19 @@ app.post('/api/handles', async (req, res, next) => {
   }
 });
 
+app.get('/api/handles', async (req, res, next) => {
+  try {
+    const { since } = req.query ?? {};
+    const sinceMs = since ? Number(since) : undefined;
+    const handles = await convex.query('handles:listHandlesWithStats', {
+      since: Number.isFinite(sinceMs) ? sinceMs : undefined,
+    });
+    return res.json({ handles });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.all('/api/cron/fetch', async (req, res, next) => {
   try {
     const secret = process.env.CRON_SECRET;
@@ -390,6 +413,89 @@ app.post('/api/matrix', async (req, res, next) => {
     return res.json({
       tweets: sorted.slice(0, resultCount),
       totalCandidates: allTweets.length,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/history', async (req, res, next) => {
+  try {
+    const {
+      handle,
+      text,
+      start,
+      end,
+      minLikes,
+      minRetweets,
+      minReplies,
+      minEngagement,
+      page,
+      pageSize,
+    } = req.body ?? {};
+
+    const startMs = start ? toTimestamp(start) : undefined;
+    const endMs = end ? toTimestamp(end) : undefined;
+
+    const handles = handle ? [normalizeHandle(handle)] : undefined;
+    const size = Math.max(1, Math.min(100, clampNumber(pageSize, 20)));
+    const pageNumber = Math.max(1, Math.floor(clampNumber(page, 1)));
+
+    const rows = await convex.query('tweets:getHistory', {
+      handles,
+      since: startMs,
+      until: endMs,
+      text: typeof text === 'string' ? text : undefined,
+      minLikes: normalizeOptionalNumber(minLikes),
+      minRetweets: normalizeOptionalNumber(minRetweets),
+      minReplies: normalizeOptionalNumber(minReplies),
+      minEngagement: normalizeOptionalNumber(minEngagement),
+    });
+
+    if (rows.length === 0) {
+      return res.json({
+        tweets: [],
+        total: 0,
+        page: pageNumber,
+        pageSize: size,
+        totalPages: 0,
+      });
+    }
+
+    const engagementsByHandle = new Map();
+    for (const row of rows) {
+      const list = engagementsByHandle.get(row.handle) ?? [];
+      list.push(row.engagement ?? engagementScore(row));
+      engagementsByHandle.set(row.handle, list);
+    }
+
+    const baselineByHandle = new Map();
+    for (const [handleKey, values] of engagementsByHandle.entries()) {
+      baselineByHandle.set(handleKey, Math.max(median(values), 1));
+    }
+
+    const enriched = rows.map((row) => {
+      const baseline = baselineByHandle.get(row.handle) ?? 1;
+      const engagement = row.engagement ?? engagementScore(row);
+      return {
+        ...mapTweet(row),
+        engagement,
+        outlierScore: engagement / baseline,
+        baselineMedian: baseline,
+      };
+    });
+
+    const total = enriched.length;
+    const totalPages = Math.ceil(total / size);
+    const offset = (pageNumber - 1) * size;
+    const paged = enriched.slice(offset, offset + size);
+
+    return res.json({
+      tweets: paged,
+      total,
+      page: pageNumber,
+      pageSize: size,
+      totalPages,
     });
   } catch (error) {
     return next(error);

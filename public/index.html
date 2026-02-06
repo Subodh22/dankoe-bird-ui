@@ -66,6 +66,69 @@
         background: linear-gradient(160deg, #0f141d, #0b0c10);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
       }
+      .tabs {
+        display: inline-flex;
+        gap: 8px;
+        padding: 6px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--panel);
+      }
+      .tab-button {
+        padding: 6px 14px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .tab-button.active {
+        color: var(--text);
+        border-color: var(--border);
+        background: var(--panel-strong);
+      }
+      .grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .card-mini {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        background: var(--panel);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .card-mini strong {
+        font-size: 16px;
+      }
+      .metric {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .card-mini button {
+        width: fit-content;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .page-info {
+        color: var(--muted);
+        font-size: 13px;
+      }
       .form-row {
         display: flex;
         flex-wrap: wrap;
@@ -186,96 +249,255 @@
             Quiet analysis for loud timelines. Fetch, filter, and surface the most signal-rich posts.
           </p>
         </div>
+        <div class="tabs" role="tablist">
+          <button class="tab-button active" id="tab-analyze" type="button">Analyze</button>
+          <button class="tab-button" id="tab-history" type="button">History</button>
+          <button class="tab-button" id="tab-handles" type="button">Handles</button>
+        </div>
       </div>
 
-      <div class="card">
-        <h2>Search</h2>
-        <form id="search-form" class="form-row">
-          <div>
-            <label for="search-query">Query</label>
-            <input id="search-query" type="text" placeholder="from:steipete OR keyword" required />
-            <div class="helper">Search the live feed by query syntax.</div>
-          </div>
-          <div>
-            <label for="search-count">Count</label>
-            <input id="search-count" type="number" min="1" max="100" value="20" />
-          </div>
-          <button id="search-button" type="submit">Run Search</button>
-        </form>
-      </div>
+      <section id="analyze-view">
+        <div class="card">
+          <h2>Search</h2>
+          <form id="search-form" class="form-row">
+            <div>
+              <label for="search-query">Query</label>
+              <input id="search-query" type="text" placeholder="from:steipete OR keyword" required />
+              <div class="helper">Search the live feed by query syntax.</div>
+            </div>
+            <div>
+              <label for="search-count">Count</label>
+              <input id="search-count" type="number" min="1" max="100" value="20" />
+            </div>
+            <button id="search-button" type="submit">Run Search</button>
+          </form>
+        </div>
 
-      <div class="card">
-        <h2>User Timeline</h2>
-        <form id="user-form" class="form-row">
-          <div>
-            <label for="user-handle">Handle</label>
-            <input id="user-handle" type="text" placeholder="@steipete" required />
-            <div class="helper">Quick scan of a single profile.</div>
-          </div>
-          <div>
-            <label for="user-count">Count</label>
-            <input id="user-count" type="number" min="1" max="100" value="20" />
-          </div>
-          <button id="user-button" type="submit">Fetch Tweets</button>
-        </form>
-      </div>
+        <div class="card">
+          <h2>User Timeline</h2>
+          <form id="user-form" class="form-row">
+            <div>
+              <label for="user-handle">Handle</label>
+              <input id="user-handle" type="text" placeholder="@steipete" required />
+              <div class="helper">Quick scan of a single profile.</div>
+            </div>
+            <div>
+              <label for="user-count">Count</label>
+              <input id="user-count" type="number" min="1" max="100" value="20" />
+            </div>
+            <button id="user-button" type="submit">Fetch Tweets</button>
+          </form>
+        </div>
 
-      <div class="card">
-        <h2>Analyze</h2>
-        <form id="analyze-form" class="form-row">
-          <div>
-            <label for="analyze-mode">Mode</label>
-            <select id="analyze-mode">
-              <option value="fetch">Fetch</option>
-              <option value="outliers">Outliers</option>
-              <option value="matrix">Matrix</option>
-            </select>
-            <div class="helper">Choose how to analyze your cached handles.</div>
-          </div>
-          <div>
-            <label for="analyze-handles">Handles</label>
-            <textarea id="analyze-handles" placeholder="@handle1&#10;@handle2"></textarea>
-            <div class="helper">One handle per line or comma-separated.</div>
-          </div>
-          <div id="analyze-count-field">
-            <label for="analyze-count">Top results</label>
-            <input id="analyze-count" type="number" min="1" max="100" value="20" />
-          </div>
-          <div id="analyze-window-field">
-            <label for="analyze-window">Time window</label>
-            <select id="analyze-window">
-              <option value="24h">Last 24h</option>
-              <option value="7d">Last 7d</option>
-              <option value="30d">Last 30d</option>
-            </select>
-          </div>
-          <div id="analyze-outlier-field">
-            <label for="analyze-outlier-toggle">Show outlier score</label>
-            <input id="analyze-outlier-toggle" type="checkbox" checked />
-          </div>
-          <button id="analyze-button" type="submit">Fetch into Cache</button>
-          <button id="save-handles-button" type="button" class="secondary">Save Handles</button>
-        </form>
-      </div>
+        <div class="card">
+          <h2>Analyze</h2>
+          <form id="analyze-form" class="form-row">
+            <div>
+              <label for="analyze-mode">Mode</label>
+              <select id="analyze-mode">
+                <option value="fetch">Fetch</option>
+                <option value="outliers">Outliers</option>
+                <option value="matrix">Matrix</option>
+              </select>
+              <div class="helper">Choose how to analyze your cached handles.</div>
+            </div>
+            <div>
+              <label for="analyze-handles">Handles</label>
+              <textarea id="analyze-handles" placeholder="@handle1&#10;@handle2"></textarea>
+              <div class="helper">One handle per line or comma-separated.</div>
+            </div>
+            <div id="analyze-count-field">
+              <label for="analyze-count">Top results</label>
+              <input id="analyze-count" type="number" min="1" max="100" value="20" />
+            </div>
+            <div id="analyze-window-field">
+              <label for="analyze-window">Time window</label>
+              <select id="analyze-window">
+                <option value="24h">Last 24h</option>
+                <option value="7d">Last 7d</option>
+                <option value="30d">Last 30d</option>
+              </select>
+            </div>
+            <div id="analyze-outlier-field">
+              <label for="analyze-outlier-toggle">Show outlier score</label>
+              <input id="analyze-outlier-toggle" type="checkbox" checked />
+            </div>
+            <button id="analyze-button" type="submit">Fetch into Cache</button>
+            <button id="save-handles-button" type="button" class="secondary">Save Handles</button>
+          </form>
+        </div>
 
-      <div class="status" id="status">Ready.</div>
+        <div class="status" id="status">Ready.</div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Text</th>
-            <th>Author</th>
-            <th>Time</th>
-            <th>Replies</th>
-            <th>Retweets</th>
-            <th>Likes</th>
-            <th>Engagement</th>
-            <th class="outlier-column">Outlier Score</th>
-            <th>Link</th>
-          </tr>
-        </thead>
-        <tbody id="results-body"></tbody>
-      </table>
+        <table>
+          <thead>
+            <tr>
+              <th>Text</th>
+              <th>Author</th>
+              <th>Time</th>
+              <th>Replies</th>
+              <th>Retweets</th>
+              <th>Likes</th>
+              <th>Engagement</th>
+              <th class="outlier-column">Outlier Score</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </section>
+
+      <section id="history-view" class="hidden">
+        <div class="card">
+          <h2>History Filters</h2>
+          <form id="history-form" class="form-row">
+            <div>
+              <label for="history-start">Start</label>
+              <input id="history-start" type="datetime-local" />
+            </div>
+            <div>
+              <label for="history-end">End</label>
+              <input id="history-end" type="datetime-local" />
+            </div>
+            <div>
+              <label for="history-handle">Handle</label>
+              <input id="history-handle" type="text" placeholder="@handle" />
+            </div>
+            <div>
+              <label for="history-text">Text contains</label>
+              <input id="history-text" type="text" placeholder="keyword" />
+            </div>
+            <div>
+              <label for="history-min-likes">Min likes</label>
+              <input id="history-min-likes" type="number" min="0" value="0" />
+            </div>
+            <div>
+              <label for="history-min-retweets">Min retweets</label>
+              <input id="history-min-retweets" type="number" min="0" value="0" />
+            </div>
+            <div>
+              <label for="history-min-replies">Min replies</label>
+              <input id="history-min-replies" type="number" min="0" value="0" />
+            </div>
+            <div>
+              <label for="history-min-engagement">Min engagement</label>
+              <input id="history-min-engagement" type="number" min="0" value="0" />
+            </div>
+            <div>
+              <label for="history-page-size">Page size</label>
+              <input id="history-page-size" type="number" min="1" max="100" value="20" />
+            </div>
+            <button id="history-search" type="submit">Search History</button>
+            <button id="history-reset" type="button" class="secondary">Reset</button>
+          </form>
+        </div>
+
+        <div class="status" id="history-status">Ready.</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Text</th>
+              <th>Author</th>
+              <th>Time</th>
+              <th>Replies</th>
+              <th>Retweets</th>
+              <th>Likes</th>
+              <th>Engagement</th>
+              <th>Outlier Score</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody id="history-results-body"></tbody>
+        </table>
+
+        <div class="pagination">
+          <div class="row">
+            <button id="history-prev" type="button" class="secondary">Prev</button>
+            <button id="history-next" type="button" class="secondary">Next</button>
+          </div>
+          <div class="page-info" id="history-page-info">Page 1</div>
+        </div>
+      </section>
+
+      <section id="handles-view" class="hidden">
+        <div class="card">
+          <h2>Handles</h2>
+          <div class="helper">Click a handle to view its history with filters.</div>
+          <div class="grid" id="handles-grid"></div>
+        </div>
+
+        <div class="card">
+          <h2>Handle History</h2>
+          <form id="handles-history-form" class="form-row">
+            <div>
+              <label for="handles-history-handle">Handle</label>
+              <input id="handles-history-handle" type="text" placeholder="@handle" />
+            </div>
+            <div>
+              <label for="handles-history-start">Start</label>
+              <input id="handles-history-start" type="datetime-local" />
+            </div>
+            <div>
+              <label for="handles-history-end">End</label>
+              <input id="handles-history-end" type="datetime-local" />
+            </div>
+            <div>
+              <label for="handles-history-text">Text contains</label>
+              <input id="handles-history-text" type="text" placeholder="keyword" />
+            </div>
+            <div>
+              <label for="handles-history-min-likes">Min likes</label>
+              <input id="handles-history-min-likes" type="number" min="0" value="0" />
+            </div>
+            <div>
+              <label for="handles-history-min-retweets">Min retweets</label>
+              <input id="handles-history-min-retweets" type="number" min="0" value="0" />
+            </div>
+            <div>
+              <label for="handles-history-min-replies">Min replies</label>
+              <input id="handles-history-min-replies" type="number" min="0" value="0" />
+            </div>
+            <div>
+              <label for="handles-history-min-engagement">Min engagement</label>
+              <input id="handles-history-min-engagement" type="number" min="0" value="0" />
+            </div>
+            <div>
+              <label for="handles-history-page-size">Page size</label>
+              <input id="handles-history-page-size" type="number" min="1" max="100" value="20" />
+            </div>
+            <button id="handles-history-search" type="submit">Search</button>
+            <button id="handles-history-reset" type="button" class="secondary">Reset</button>
+          </form>
+        </div>
+
+        <div class="status" id="handles-history-status">Ready.</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Text</th>
+              <th>Author</th>
+              <th>Time</th>
+              <th>Replies</th>
+              <th>Retweets</th>
+              <th>Likes</th>
+              <th>Engagement</th>
+              <th>Outlier Score</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody id="handles-history-results"></tbody>
+        </table>
+
+        <div class="pagination">
+          <div class="row">
+            <button id="handles-history-prev" type="button" class="secondary">Prev</button>
+            <button id="handles-history-next" type="button" class="secondary">Next</button>
+          </div>
+          <div class="page-info" id="handles-history-page-info">Page 1</div>
+        </div>
+      </section>
 
       <script src="app.js"></script>
     </div>

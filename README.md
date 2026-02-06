@@ -32,6 +32,17 @@ Handles and tweets are stored in Convex.
 Use **Save Handles** to persist your list for the daily cron job.
 If the handles box is empty, Outliers/Matrix will use saved handles from Convex.
 
+## History tab
+Use **History** to browse saved tweets with advanced filters:
+- Time range (start/end)
+- Handle + text contains
+- Minimum likes/retweets/replies/engagement
+Results are paginated (default 20 per page).
+
+## Handles tab
+Use **Handles** to see a grid of saved handles with basic stats. Click **View History** to
+load that handle’s past tweets, then refine with filters and pagination.
+
 ## Outlier tweets
 After fetching, the server computes engagement (`likes + retweets + replies`) and
 ranks tweets by outlier score (engagement vs the author’s median).
