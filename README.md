@@ -43,6 +43,12 @@ Results are paginated (default 20 per page).
 Use **Handles** to see a grid of saved handles with basic stats. Click **View History** to
 load that handle’s past tweets, then refine with filters and pagination.
 
+## Script tab
+Use **Script** to generate a YouTube script from selected tweets:
+1. In **Handles**, click **Add** on tweets you want to include.
+2. Open **Script**, pick an OpenRouter model, paste your prompt, and click **Generate**.
+3. Generated scripts are saved with history.
+
 ## Outlier tweets
 After fetching, the server computes engagement (`likes + retweets + replies`) and
 ranks tweets by outlier score (engagement vs the author’s median).
@@ -58,6 +64,7 @@ Create `C:\Users\Subodh Maharjan\Desktop\dankoe\bird-ui\.env`:
 
 ```
 CONVEX_URL=your_convex_deployment_url
+OPENROUTER_API_KEY=your_openrouter_key
 AUTH_TOKEN=your_auth_token_here
 CT0=your_ct0_here
 ```

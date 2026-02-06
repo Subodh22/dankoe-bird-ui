@@ -99,6 +99,40 @@ function normalizeOptionalNumber(value) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+async function callOpenRouter({ model, messages }) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENROUTER_API_KEY is required');
+  }
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`OpenRouter error ${response.status}: ${text.slice(0, 200)}`);
+  }
+
+  const data = await response.json();
+  return data?.choices?.[0]?.message?.content ?? '';
+}
+
+async function getTweetsByIds(tweetIds) {
+  if (!tweetIds.length) {
+    return [];
+  }
+  return convex.query('tweets:getTweetsByIds', { tweetIds });
+}
+
 function engagementScore(tweet) {
   return (tweet.likeCount ?? 0) + (tweet.retweetCount ?? 0) + (tweet.replyCount ?? 0);
 }
@@ -497,6 +531,107 @@ app.post('/api/history', async (req, res, next) => {
       pageSize: size,
       totalPages,
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/script/generate', async (req, res, next) => {
+  try {
+    const { model, prompt, tweetIds } = req.body ?? {};
+    if (!model || typeof model !== 'string') {
+      return res.status(400).json({ error: 'model is required' });
+    }
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+    if (!Array.isArray(tweetIds) || tweetIds.length === 0) {
+      return res.status(400).json({ error: 'tweetIds is required' });
+    }
+
+    const selected = await getTweetsByIds(tweetIds);
+    if (selected.length === 0) {
+      return res.status(400).json({ error: 'No tweets found for selection' });
+    }
+    const context = selected.map((tweet) => {
+      return `@${tweet.authorUsername}: ${tweet.text}`;
+    });
+
+    const messages = [
+      { role: 'system', content: 'You are a helpful YouTube script writer.' },
+      {
+        role: 'user',
+        content: `${prompt}\n\nTweets:\n${context.join('\n')}`,
+      },
+    ];
+
+    const output = await callOpenRouter({ model, messages });
+    await convex.mutation('scripts:saveScript', { model, prompt, output });
+    return res.json({ output });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/script/selection/add', async (req, res, next) => {
+  try {
+    const { tweetId, handle } = req.body ?? {};
+    if (!tweetId || !handle) {
+      return res.status(400).json({ error: 'tweetId and handle are required' });
+    }
+    const result = await convex.mutation('scripts:addSelection', {
+      tweetId,
+      handle: normalizeHandle(handle),
+    });
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/script/selection/remove', async (req, res, next) => {
+  try {
+    const { tweetId } = req.body ?? {};
+    if (!tweetId) {
+      return res.status(400).json({ error: 'tweetId is required' });
+    }
+    const result = await convex.mutation('scripts:removeSelection', { tweetId });
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/script/selections', async (req, res, next) => {
+  try {
+    const selections = await convex.query('scripts:listSelections');
+    const tweetIds = selections.map((item) => item.tweetId);
+    const tweets = await getTweetsByIds(tweetIds);
+    const tweetMap = new Map(tweets.map((tweet) => [tweet.tweetId, tweet]));
+
+    const enriched = selections.map((item) => ({
+      ...item,
+      tweet: tweetMap.get(item.tweetId) ?? null,
+    }));
+    return res.json({ selections: enriched });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/script/selections/clear', async (req, res, next) => {
+  try {
+    const result = await convex.mutation('scripts:clearSelections');
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/script/history', async (req, res, next) => {
+  try {
+    const scripts = await convex.query('scripts:listScripts');
+    return res.json({ scripts });
   } catch (error) {
     return next(error);
   }

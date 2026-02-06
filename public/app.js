@@ -13,9 +13,11 @@ const saveHandlesButton = document.getElementById('save-handles-button');
 const tabAnalyze = document.getElementById('tab-analyze');
 const tabHistory = document.getElementById('tab-history');
 const tabHandles = document.getElementById('tab-handles');
+const tabScript = document.getElementById('tab-script');
 const analyzeView = document.getElementById('analyze-view');
 const historyView = document.getElementById('history-view');
 const handlesView = document.getElementById('handles-view');
+const scriptView = document.getElementById('script-view');
 const historyForm = document.getElementById('history-form');
 const historyStart = document.getElementById('history-start');
 const historyEnd = document.getElementById('history-end');
@@ -47,6 +49,14 @@ const handlesHistoryPrev = document.getElementById('handles-history-prev');
 const handlesHistoryNext = document.getElementById('handles-history-next');
 const handlesHistoryPageInfo = document.getElementById('handles-history-page-info');
 const handlesHistoryStatus = document.getElementById('handles-history-status');
+const scriptForm = document.getElementById('script-form');
+const scriptModel = document.getElementById('script-model');
+const scriptModelPresets = document.getElementById('script-model-presets');
+const scriptPrompt = document.getElementById('script-prompt');
+const scriptGenerate = document.getElementById('script-generate');
+const scriptClear = document.getElementById('script-clear');
+const scriptSelectionList = document.getElementById('script-selection-list');
+const scriptHistory = document.getElementById('script-history');
 const statusEl = document.getElementById('status');
 const resultsBody = document.getElementById('results-body');
 const searchButton = document.getElementById('search-button');
@@ -79,6 +89,8 @@ function setLoading(isLoading) {
   userButton.disabled = isLoading;
   analyzeButton.disabled = isLoading;
   saveHandlesButton.disabled = isLoading;
+  scriptGenerate.disabled = isLoading;
+  scriptClear.disabled = isLoading;
 }
 
 function formatDate(value) {
@@ -316,6 +328,26 @@ function renderHandlesHistoryResults(tweets) {
     }
     row.appendChild(linkCell);
 
+    const scriptCell = document.createElement('td');
+    const addButton = document.createElement('button');
+    addButton.type = 'button';
+    addButton.textContent = 'Add';
+    addButton.className = 'secondary';
+    addButton.addEventListener('click', async () => {
+      try {
+        await requestJson('/api/script/selection/add', {
+          tweetId: tweet.id,
+          handle: tweet.authorUsername,
+        });
+        await loadScriptSelections();
+        setHandlesHistoryStatus('Added to script.');
+      } catch (error) {
+        setHandlesHistoryStatus(error.message || 'Failed to add to script.', true);
+      }
+    });
+    scriptCell.appendChild(addButton);
+    row.appendChild(scriptCell);
+
     handlesHistoryResults.appendChild(row);
   }
 
@@ -383,12 +415,15 @@ function setActiveTab(tab) {
   const isAnalyze = tab === 'analyze';
   const isHistory = tab === 'history';
   const isHandles = tab === 'handles';
+  const isScript = tab === 'script';
   tabAnalyze.classList.toggle('active', isAnalyze);
   tabHistory.classList.toggle('active', isHistory);
   tabHandles.classList.toggle('active', isHandles);
+  tabScript.classList.toggle('active', isScript);
   analyzeView.classList.toggle('hidden', !isAnalyze);
   historyView.classList.toggle('hidden', !isHistory);
   handlesView.classList.toggle('hidden', !isHandles);
+  scriptView.classList.toggle('hidden', !isScript);
 }
 
 function normalizeMinValue(value) {
@@ -514,6 +549,77 @@ async function loadHandlesGrid() {
   }
 }
 
+async function loadScriptSelections() {
+  scriptSelectionList.innerHTML = '';
+  const response = await fetch('/api/script/selections');
+  const data = await response.json();
+  if (!response.ok) {
+    scriptSelectionList.innerHTML = '<div class="muted">Failed to load selection.</div>';
+    return;
+  }
+  const selections = data.selections ?? [];
+  if (selections.length === 0) {
+    scriptSelectionList.innerHTML = '<div class="muted">No tweets selected.</div>';
+    return;
+  }
+
+  for (const item of selections) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'card-mini';
+
+    const title = document.createElement('strong');
+    title.textContent = `@${item.handle}`;
+    wrapper.appendChild(title);
+
+    const text = document.createElement('div');
+    text.className = 'metric';
+    text.textContent = item.tweet?.text ?? 'Tweet not found';
+    wrapper.appendChild(text);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'secondary';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', async () => {
+      await requestJson('/api/script/selection/remove', { tweetId: item.tweetId });
+      await loadScriptSelections();
+    });
+    wrapper.appendChild(removeBtn);
+
+    scriptSelectionList.appendChild(wrapper);
+  }
+}
+
+async function loadScriptHistory() {
+  scriptHistory.innerHTML = '';
+  const response = await fetch('/api/script/history');
+  const data = await response.json();
+  if (!response.ok) {
+    scriptHistory.innerHTML = '<div class="muted">Failed to load scripts.</div>';
+    return;
+  }
+  const scripts = data.scripts ?? [];
+  if (!scripts.length) {
+    scriptHistory.innerHTML = '<div class="muted">No scripts generated yet.</div>';
+    return;
+  }
+  for (const script of scripts) {
+    const card = document.createElement('div');
+    card.className = 'card-mini';
+
+    const title = document.createElement('strong');
+    title.textContent = script.model;
+    card.appendChild(title);
+
+    const text = document.createElement('div');
+    text.className = 'metric';
+    text.textContent = script.output.slice(0, 200);
+    card.appendChild(text);
+
+    scriptHistory.appendChild(card);
+  }
+}
+
 function updateAnalyzeMode() {
   const mode = analyzeMode.value;
   const showCount = mode !== 'fetch';
@@ -636,6 +742,11 @@ tabHandles.addEventListener('click', async () => {
     handlesGrid.innerHTML = '<div class="muted">Failed to load handles.</div>';
   }
 });
+tabScript.addEventListener('click', async () => {
+  setActiveTab('script');
+  await loadScriptSelections();
+  await loadScriptHistory();
+});
 
 historyForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -733,6 +844,48 @@ handlesHistoryNext.addEventListener('click', async () => {
   } catch (error) {
     setHandlesHistoryStatus(error.message || 'History pagination failed.', true);
   }
+});
+
+scriptModelPresets.addEventListener('change', () => {
+  if (scriptModelPresets.value) {
+    scriptModel.value = scriptModelPresets.value;
+  }
+});
+
+scriptForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  setLoading(true);
+  try {
+    const model = scriptModel.value.trim() || scriptModelPresets.value;
+    if (!model) {
+      setStatus('Please select a model.', true);
+      return;
+    }
+    const response = await fetch('/api/script/selections');
+    const selectionData = await response.json();
+    const selections = selectionData.selections ?? [];
+    const tweetIds = selections.map((item) => item.tweetId);
+    if (tweetIds.length === 0) {
+      setStatus('No tweets selected for script.', true);
+      return;
+    }
+    const prompt = scriptPrompt.value.trim();
+    if (!prompt) {
+      setStatus('Please provide a prompt.', true);
+      return;
+    }
+    await requestJson('/api/script/generate', { model, prompt, tweetIds });
+    await loadScriptHistory();
+  } catch (error) {
+    setStatus(error.message || 'Script generation failed.', true);
+  } finally {
+    setLoading(false);
+  }
+});
+
+scriptClear.addEventListener('click', async () => {
+  await requestJson('/api/script/selections/clear', {});
+  await loadScriptSelections();
 });
 
 updateAnalyzeMode();

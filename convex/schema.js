@@ -23,4 +23,15 @@ export default defineSchema({
     .index('by_tweet', ['tweetId'])
     .index('by_handle_createdAt', ['handle', 'createdAt'])
     .index('by_createdAt', ['createdAt']),
+  scriptSelections: defineTable({
+    tweetId: v.string(),
+    handle: v.string(),
+    addedAt: v.number(),
+  }).index('by_tweet', ['tweetId']),
+  scripts: defineTable({
+    model: v.string(),
+    prompt: v.string(),
+    output: v.string(),
+    createdAt: v.number(),
+  }).index('by_createdAt', ['createdAt']),
 });

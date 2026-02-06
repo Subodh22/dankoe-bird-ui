@@ -253,6 +253,7 @@
           <button class="tab-button active" id="tab-analyze" type="button">Analyze</button>
           <button class="tab-button" id="tab-history" type="button">History</button>
           <button class="tab-button" id="tab-handles" type="button">Handles</button>
+          <button class="tab-button" id="tab-script" type="button">Script</button>
         </div>
       </div>
 
@@ -485,6 +486,7 @@
               <th>Engagement</th>
               <th>Outlier Score</th>
               <th>Link</th>
+              <th>Script</th>
             </tr>
           </thead>
           <tbody id="handles-history-results"></tbody>
@@ -496,6 +498,49 @@
             <button id="handles-history-next" type="button" class="secondary">Next</button>
           </div>
           <div class="page-info" id="handles-history-page-info">Page 1</div>
+        </div>
+      </section>
+
+      <section id="script-view" class="hidden">
+        <div class="card">
+          <h2>Script Generator</h2>
+          <form id="script-form" class="form-row">
+            <div>
+              <label for="script-model">Model</label>
+              <input
+                id="script-model"
+                type="text"
+                placeholder="openrouter/anthropic/claude-3.5-sonnet"
+              />
+              <div class="helper">You can paste any OpenRouter model ID.</div>
+            </div>
+            <div>
+              <label for="script-model-presets">Presets</label>
+              <select id="script-model-presets">
+                <option value="">Select preset</option>
+                <option value="openrouter/anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                <option value="openrouter/anthropic/claude-3.7-sonnet">Claude 3.7 Sonnet</option>
+                <option value="openrouter/kimiai/kimi-k2">Kimi K2.5</option>
+              </select>
+            </div>
+            <div>
+              <label for="script-prompt">Prompt</label>
+              <textarea id="script-prompt" placeholder="Write a YouTube script that..."></textarea>
+            </div>
+            <button id="script-generate" type="submit">Generate Script</button>
+            <button id="script-clear" type="button" class="secondary">Clear Selection</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Selected Tweets</h2>
+          <div class="helper">Tweets you add from Handles will appear here.</div>
+          <div id="script-selection-list" class="row"></div>
+        </div>
+
+        <div class="card">
+          <h2>Generated Scripts</h2>
+          <div id="script-history" class="row"></div>
         </div>
       </section>
 

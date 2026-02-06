@@ -125,3 +125,20 @@ export const getHistory = query({
     return filtered;
   },
 });
+
+export const getTweetsByIds = query({
+  args: { tweetIds: v.array(v.string()) },
+  handler: async (ctx, { tweetIds }) => {
+    const results = [];
+    for (const tweetId of tweetIds) {
+      const row = await ctx.db
+        .query('tweets')
+        .withIndex('by_tweet', (q) => q.eq('tweetId', tweetId))
+        .unique();
+      if (row) {
+        results.push(row);
+      }
+    }
+    return results;
+  },
+});
