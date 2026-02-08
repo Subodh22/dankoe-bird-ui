@@ -19,8 +19,10 @@ export default defineSchema({
     likeCount: v.number(),
     engagement: v.number(),
     url: v.union(v.string(), v.null()),
+    sources: v.optional(v.array(v.string())),
   })
     .index('by_tweet', ['tweetId'])
+    .index('by_source_createdAt', ['sources', 'createdAt'])
     .index('by_handle_createdAt', ['handle', 'createdAt'])
     .index('by_createdAt', ['createdAt']),
   scriptSelections: defineTable({
@@ -32,6 +34,11 @@ export default defineSchema({
     model: v.string(),
     prompt: v.string(),
     output: v.string(),
+    createdAt: v.number(),
+  }).index('by_createdAt', ['createdAt']),
+  promptTemplates: defineTable({
+    name: v.string(),
+    content: v.string(),
     createdAt: v.number(),
   }).index('by_createdAt', ['createdAt']),
 });

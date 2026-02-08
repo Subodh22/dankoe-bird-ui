@@ -49,6 +49,10 @@ Use **Script** to generate a YouTube script from selected tweets:
 2. Open **Script**, pick an OpenRouter model, paste your prompt, and click **Generate**.
 3. Generated scripts are saved with history.
 
+## Reels templates
+Use **Template** fields in the Script tab to save reusable instructions in Convex.
+Select a template, then generate a Reels script using Kimi or any OpenRouter model.
+
 ## Outlier tweets
 After fetching, the server computes engagement (`likes + retweets + replies`) and
 ranks tweets by outlier score (engagement vs the author’s median).

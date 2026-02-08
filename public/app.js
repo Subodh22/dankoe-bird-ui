@@ -13,10 +13,14 @@ const saveHandlesButton = document.getElementById('save-handles-button');
 const tabAnalyze = document.getElementById('tab-analyze');
 const tabHistory = document.getElementById('tab-history');
 const tabHandles = document.getElementById('tab-handles');
+const tabBird = document.getElementById('tab-bird');
+const tabForYou = document.getElementById('tab-foryou');
 const tabScript = document.getElementById('tab-script');
 const analyzeView = document.getElementById('analyze-view');
 const historyView = document.getElementById('history-view');
 const handlesView = document.getElementById('handles-view');
+const birdView = document.getElementById('bird-view');
+const forYouView = document.getElementById('foryou-view');
 const scriptView = document.getElementById('script-view');
 const historyForm = document.getElementById('history-form');
 const historyStart = document.getElementById('history-start');
@@ -27,6 +31,7 @@ const historyMinLikes = document.getElementById('history-min-likes');
 const historyMinRetweets = document.getElementById('history-min-retweets');
 const historyMinReplies = document.getElementById('history-min-replies');
 const historyMinEngagement = document.getElementById('history-min-engagement');
+const historySource = document.getElementById('history-source');
 const historyPageSize = document.getElementById('history-page-size');
 const historyResultsBody = document.getElementById('history-results-body');
 const historyPrev = document.getElementById('history-prev');
@@ -49,15 +54,34 @@ const handlesHistoryPrev = document.getElementById('handles-history-prev');
 const handlesHistoryNext = document.getElementById('handles-history-next');
 const handlesHistoryPageInfo = document.getElementById('handles-history-page-info');
 const handlesHistoryStatus = document.getElementById('handles-history-status');
+const birdForm = document.getElementById('bird-form');
+const birdQuery = document.getElementById('bird-query');
+const birdCount = document.getElementById('bird-count');
+const birdPresets = document.getElementById('bird-presets');
+const birdResultsBody = document.getElementById('bird-results-body');
+const birdStatus = document.getElementById('bird-status');
+const birdSearchButton = document.getElementById('bird-search-button');
+const forYouForm = document.getElementById('foryou-form');
+const forYouCount = document.getElementById('foryou-count');
+const forYouRefresh = document.getElementById('foryou-refresh');
+const forYouResultsBody = document.getElementById('foryou-results-body');
+const forYouStatus = document.getElementById('foryou-status');
 const scriptForm = document.getElementById('script-form');
 const scriptModel = document.getElementById('script-model');
 const scriptModelPresets = document.getElementById('script-model-presets');
+const scriptTemplateSelect = document.getElementById('script-template-select');
+const scriptTemplateName = document.getElementById('script-template-name');
+const scriptTemplateContent = document.getElementById('script-template-content');
+const scriptSaveTemplate = document.getElementById('script-save-template');
 const scriptPrompt = document.getElementById('script-prompt');
 const scriptGenerate = document.getElementById('script-generate');
+const scriptGenerateInline = document.getElementById('script-generate-inline');
 const scriptClear = document.getElementById('script-clear');
 const scriptSelectionList = document.getElementById('script-selection-list');
 const scriptHistory = document.getElementById('script-history');
 const statusEl = document.getElementById('status');
+const statusText = document.getElementById('status-text');
+const statusSpinner = document.getElementById('status-spinner');
 const resultsBody = document.getElementById('results-body');
 const searchButton = document.getElementById('search-button');
 const userButton = document.getElementById('user-button');
@@ -71,8 +95,19 @@ let handlesHistoryTotalPages = 0;
 let handlesHistoryFilters = null;
 
 function setStatus(message, isError = false) {
-  statusEl.textContent = message;
+  if (statusText) {
+    statusText.textContent = message;
+  } else {
+    statusEl.textContent = message;
+  }
   statusEl.style.color = isError ? '#b91c1c' : '#9aa4b2';
+}
+
+function setStatusSpinner(isVisible) {
+  if (!statusSpinner) {
+    return;
+  }
+  statusSpinner.classList.toggle('hidden', !isVisible);
 }
 
 function setHistoryStatus(message, isError = false) {
@@ -84,13 +119,37 @@ function setHandlesHistoryStatus(message, isError = false) {
   handlesHistoryStatus.textContent = message;
   handlesHistoryStatus.style.color = isError ? '#b91c1c' : '#9aa4b2';
 }
+
+function setBirdStatus(message, isError = false) {
+  if (!birdStatus) {
+    return;
+  }
+  birdStatus.textContent = message;
+  birdStatus.style.color = isError ? '#b91c1c' : '#9aa4b2';
+}
+
+function setForYouStatus(message, isError = false) {
+  if (!forYouStatus) {
+    return;
+  }
+  forYouStatus.textContent = message;
+  forYouStatus.style.color = isError ? '#b91c1c' : '#9aa4b2';
+}
+
 function setLoading(isLoading) {
   searchButton.disabled = isLoading;
   userButton.disabled = isLoading;
   analyzeButton.disabled = isLoading;
   saveHandlesButton.disabled = isLoading;
+  if (birdSearchButton) {
+    birdSearchButton.disabled = isLoading;
+  }
+  if (forYouRefresh) {
+    forYouRefresh.disabled = isLoading;
+  }
   scriptGenerate.disabled = isLoading;
   scriptClear.disabled = isLoading;
+  scriptGenerateInline.disabled = isLoading;
 }
 
 function formatDate(value) {
@@ -134,6 +193,36 @@ function formatScore(value) {
   return Number(value).toFixed(2);
 }
 
+function renderMediaThumbnails(container, tweet) {
+  if (!tweet?.media || tweet.media.length === 0) {
+    return;
+  }
+  const wrapper = document.createElement('div');
+  wrapper.className = 'media-thumbs';
+
+  tweet.media.forEach((media) => {
+    const src = media.previewUrl || media.url;
+    if (!src) {
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = media.videoUrl || media.url || tweet.url || '#';
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = media.type ? `${media.type} thumbnail` : 'media thumbnail';
+
+    link.appendChild(img);
+    wrapper.appendChild(link);
+  });
+
+  if (wrapper.childNodes.length > 0) {
+    container.appendChild(wrapper);
+  }
+}
+
 function renderResults(tweets, options = {}) {
   clearResults();
   if (!tweets || tweets.length === 0) {
@@ -149,6 +238,7 @@ function renderResults(tweets, options = {}) {
     const textCell = document.createElement('td');
     textCell.className = 'text-cell';
     textCell.textContent = tweet.text || '';
+    renderMediaThumbnails(textCell, tweet);
     row.appendChild(textCell);
 
     const authorCell = document.createElement('td');
@@ -354,6 +444,212 @@ function renderHandlesHistoryResults(tweets) {
   setHandlesHistoryStatus(`Showing ${tweets.length} results.`);
 }
 
+function renderBirdResults(tweets) {
+  birdResultsBody.innerHTML = '';
+  if (!tweets || tweets.length === 0) {
+    setBirdStatus('No results found.');
+    return;
+  }
+
+  for (const tweet of tweets) {
+    const row = document.createElement('tr');
+
+    const textCell = document.createElement('td');
+    textCell.className = 'text-cell';
+    textCell.textContent = tweet.text || '';
+    renderMediaThumbnails(textCell, tweet);
+    row.appendChild(textCell);
+
+    const authorCell = document.createElement('td');
+    authorCell.textContent = tweet.authorName
+      ? `${tweet.authorName} (@${tweet.authorUsername})`
+      : `@${tweet.authorUsername || ''}`;
+    row.appendChild(authorCell);
+
+    const timeCell = document.createElement('td');
+    timeCell.textContent = formatDate(tweet.createdAt);
+    row.appendChild(timeCell);
+
+    const repliesCell = document.createElement('td');
+    repliesCell.textContent = String(tweet.replyCount ?? 0);
+    row.appendChild(repliesCell);
+
+    const retweetsCell = document.createElement('td');
+    retweetsCell.textContent = String(tweet.retweetCount ?? 0);
+    row.appendChild(retweetsCell);
+
+    const likesCell = document.createElement('td');
+    likesCell.textContent = String(tweet.likeCount ?? 0);
+    row.appendChild(likesCell);
+
+    const engagementCell = document.createElement('td');
+    engagementCell.textContent =
+      tweet.engagement !== undefined && tweet.engagement !== null ? String(tweet.engagement) : '';
+    row.appendChild(engagementCell);
+
+    const linkCell = document.createElement('td');
+    if (tweet.url) {
+      const link = document.createElement('a');
+      link.href = tweet.url;
+      link.textContent = 'Open';
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      linkCell.appendChild(link);
+    } else {
+      linkCell.textContent = '';
+    }
+    row.appendChild(linkCell);
+
+    const actionsCell = document.createElement('td');
+    const actionsRow = document.createElement('div');
+    actionsRow.className = 'row';
+
+    const selectButton = document.createElement('button');
+    selectButton.type = 'button';
+    selectButton.className = 'secondary';
+    selectButton.textContent = 'Select for Script';
+    selectButton.disabled = !tweet.id || !tweet.authorUsername;
+    selectButton.addEventListener('click', async () => {
+      try {
+        await requestJson('/api/script/selection/add', {
+          tweetId: tweet.id,
+          handle: tweet.authorUsername,
+        });
+        await loadScriptSelections();
+        setBirdStatus('Added to script selection.');
+      } catch (error) {
+        setBirdStatus(error.message || 'Failed to add selection.', true);
+      }
+    });
+
+    const saveButton = document.createElement('button');
+    saveButton.type = 'button';
+    saveButton.className = 'secondary';
+    saveButton.textContent = 'Save Handle';
+    saveButton.disabled = !tweet.authorUsername;
+    saveButton.addEventListener('click', async () => {
+      try {
+        await requestJson('/api/handles', { handles: [tweet.authorUsername] });
+        setBirdStatus(`Saved @${tweet.authorUsername}.`);
+      } catch (error) {
+        setBirdStatus(error.message || 'Failed to save handle.', true);
+      }
+    });
+
+    actionsRow.appendChild(selectButton);
+    actionsRow.appendChild(saveButton);
+    actionsCell.appendChild(actionsRow);
+    row.appendChild(actionsCell);
+
+    birdResultsBody.appendChild(row);
+  }
+
+  setBirdStatus(`Showing ${tweets.length} results.`);
+}
+
+function renderForYouResults(tweets) {
+  forYouResultsBody.innerHTML = '';
+  if (!tweets || tweets.length === 0) {
+    setForYouStatus('No results found.');
+    return;
+  }
+
+  for (const tweet of tweets) {
+    const row = document.createElement('tr');
+
+    const textCell = document.createElement('td');
+    textCell.className = 'text-cell';
+    textCell.textContent = tweet.text || '';
+    renderMediaThumbnails(textCell, tweet);
+    row.appendChild(textCell);
+
+    const authorCell = document.createElement('td');
+    authorCell.textContent = tweet.authorName
+      ? `${tweet.authorName} (@${tweet.authorUsername})`
+      : `@${tweet.authorUsername || ''}`;
+    row.appendChild(authorCell);
+
+    const timeCell = document.createElement('td');
+    timeCell.textContent = formatDate(tweet.createdAt);
+    row.appendChild(timeCell);
+
+    const repliesCell = document.createElement('td');
+    repliesCell.textContent = String(tweet.replyCount ?? 0);
+    row.appendChild(repliesCell);
+
+    const retweetsCell = document.createElement('td');
+    retweetsCell.textContent = String(tweet.retweetCount ?? 0);
+    row.appendChild(retweetsCell);
+
+    const likesCell = document.createElement('td');
+    likesCell.textContent = String(tweet.likeCount ?? 0);
+    row.appendChild(likesCell);
+
+    const engagementCell = document.createElement('td');
+    engagementCell.textContent =
+      tweet.engagement !== undefined && tweet.engagement !== null ? String(tweet.engagement) : '';
+    row.appendChild(engagementCell);
+
+    const linkCell = document.createElement('td');
+    if (tweet.url) {
+      const link = document.createElement('a');
+      link.href = tweet.url;
+      link.textContent = 'Open';
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      linkCell.appendChild(link);
+    } else {
+      linkCell.textContent = '';
+    }
+    row.appendChild(linkCell);
+
+    const actionsCell = document.createElement('td');
+    const actionsRow = document.createElement('div');
+    actionsRow.className = 'row';
+
+    const selectButton = document.createElement('button');
+    selectButton.type = 'button';
+    selectButton.className = 'secondary';
+    selectButton.textContent = 'Select for Script';
+    selectButton.disabled = !tweet.id || !tweet.authorUsername;
+    selectButton.addEventListener('click', async () => {
+      try {
+        await requestJson('/api/script/selection/add', {
+          tweetId: tweet.id,
+          handle: tweet.authorUsername,
+        });
+        await loadScriptSelections();
+        setForYouStatus('Added to script selection.');
+      } catch (error) {
+        setForYouStatus(error.message || 'Failed to add selection.', true);
+      }
+    });
+
+    const saveButton = document.createElement('button');
+    saveButton.type = 'button';
+    saveButton.className = 'secondary';
+    saveButton.textContent = 'Save Handle';
+    saveButton.disabled = !tweet.authorUsername;
+    saveButton.addEventListener('click', async () => {
+      try {
+        await requestJson('/api/handles', { handles: [tweet.authorUsername] });
+        setForYouStatus(`Saved @${tweet.authorUsername}.`);
+      } catch (error) {
+        setForYouStatus(error.message || 'Failed to save handle.', true);
+      }
+    });
+
+    actionsRow.appendChild(selectButton);
+    actionsRow.appendChild(saveButton);
+    actionsCell.appendChild(actionsRow);
+    row.appendChild(actionsCell);
+
+    forYouResultsBody.appendChild(row);
+  }
+
+  setForYouStatus(`Showing ${tweets.length} results.`);
+}
+
 async function requestJson(url, payload) {
   const response = await fetch(url, {
     method: 'POST',
@@ -366,6 +662,34 @@ async function requestJson(url, payload) {
     throw new Error(message);
   }
   return data;
+}
+
+async function fetchBirdSearch(query, count) {
+  setLoading(true);
+  setBirdStatus('Searching...');
+  try {
+    const data = await requestJson('/api/search', { query, count });
+    renderBirdResults(data.tweets);
+  } catch (error) {
+    birdResultsBody.innerHTML = '';
+    setBirdStatus(error.message || 'Search failed.', true);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function fetchForYou(count) {
+  setLoading(true);
+  setForYouStatus('Loading For You feed...');
+  try {
+    const data = await requestJson('/api/home', { count });
+    renderForYouResults(data.tweets);
+  } catch (error) {
+    forYouResultsBody.innerHTML = '';
+    setForYouStatus(error.message || 'For You feed failed.', true);
+  } finally {
+    setLoading(false);
+  }
 }
 
 searchForm.addEventListener('submit', async (event) => {
@@ -404,6 +728,41 @@ userForm.addEventListener('submit', async (event) => {
   }
 });
 
+if (birdForm) {
+  birdForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const query = birdQuery.value.trim();
+    if (!query) {
+      setBirdStatus('Please provide a query.', true);
+      return;
+    }
+    const count = birdCount.value;
+    await fetchBirdSearch(query, count);
+  });
+}
+
+if (birdPresets) {
+  birdPresets.querySelectorAll('button[data-query]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const query = button.getAttribute('data-query');
+      if (!query) {
+        return;
+      }
+      birdQuery.value = query;
+      const count = birdCount.value;
+      await fetchBirdSearch(query, count);
+    });
+  });
+}
+
+if (forYouForm) {
+  forYouForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const count = forYouCount.value;
+    await fetchForYou(count);
+  });
+}
+
 function parseHandles(value) {
   return value
     .split(/[\n,]+/)
@@ -415,14 +774,20 @@ function setActiveTab(tab) {
   const isAnalyze = tab === 'analyze';
   const isHistory = tab === 'history';
   const isHandles = tab === 'handles';
+  const isBird = tab === 'bird';
+  const isForYou = tab === 'foryou';
   const isScript = tab === 'script';
   tabAnalyze.classList.toggle('active', isAnalyze);
   tabHistory.classList.toggle('active', isHistory);
   tabHandles.classList.toggle('active', isHandles);
+  tabBird.classList.toggle('active', isBird);
+  tabForYou.classList.toggle('active', isForYou);
   tabScript.classList.toggle('active', isScript);
   analyzeView.classList.toggle('hidden', !isAnalyze);
   historyView.classList.toggle('hidden', !isHistory);
   handlesView.classList.toggle('hidden', !isHandles);
+  birdView.classList.toggle('hidden', !isBird);
+  forYouView.classList.toggle('hidden', !isForYou);
   scriptView.classList.toggle('hidden', !isScript);
 }
 
@@ -444,6 +809,7 @@ function getHistoryFilters() {
     minRetweets: normalizeMinValue(historyMinRetweets.value),
     minReplies: normalizeMinValue(historyMinReplies.value),
     minEngagement: normalizeMinValue(historyMinEngagement.value),
+    source: historySource?.value || undefined,
     pageSize: historyPageSize.value || 20,
   };
   return filters;
@@ -576,6 +942,17 @@ async function loadScriptSelections() {
     text.textContent = item.tweet?.text ?? 'Tweet not found';
     wrapper.appendChild(text);
 
+    const actions = document.createElement('div');
+    actions.className = 'row';
+
+    const generateBtn = document.createElement('button');
+    generateBtn.type = 'button';
+    generateBtn.textContent = 'Generate Script';
+    generateBtn.addEventListener('click', async () => {
+      await generateScriptFromSelections({ switchToScriptTab: true });
+    });
+    actions.appendChild(generateBtn);
+
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'secondary';
@@ -584,7 +961,9 @@ async function loadScriptSelections() {
       await requestJson('/api/script/selection/remove', { tweetId: item.tweetId });
       await loadScriptSelections();
     });
-    wrapper.appendChild(removeBtn);
+    actions.appendChild(removeBtn);
+
+    wrapper.appendChild(actions);
 
     scriptSelectionList.appendChild(wrapper);
   }
@@ -612,11 +991,68 @@ async function loadScriptHistory() {
     card.appendChild(title);
 
     const text = document.createElement('div');
-    text.className = 'metric';
-    text.textContent = script.output.slice(0, 200);
+    text.className = 'metric script-output';
+    text.textContent = script.output;
     card.appendChild(text);
 
     scriptHistory.appendChild(card);
+  }
+}
+
+async function loadTemplates() {
+  scriptTemplateSelect.innerHTML = '<option value="">Select template</option>';
+  const response = await fetch('/api/templates');
+  const data = await response.json();
+  if (!response.ok) {
+    return;
+  }
+  const templates = data.templates ?? [];
+  for (const template of templates) {
+    const option = document.createElement('option');
+    option.value = template._id;
+    option.textContent = template.name;
+    scriptTemplateSelect.appendChild(option);
+  }
+}
+
+async function generateScriptFromSelections({ switchToScriptTab = false } = {}) {
+  setLoading(true);
+  setStatus('Generating script...');
+  setStatusSpinner(true);
+  try {
+    const model = scriptModel.value.trim() || scriptModelPresets.value;
+    if (!model) {
+      setStatus('Please select a model.', true);
+      return;
+    }
+    const response = await fetch('/api/script/selections');
+    const selectionData = await response.json();
+    if (!response.ok) {
+      setStatus(selectionData?.error || 'Failed to load selection.', true);
+      return;
+    }
+    const selections = selectionData.selections ?? [];
+    const tweetIds = selections.map((item) => item.tweetId);
+    if (tweetIds.length === 0) {
+      setStatus('No tweets selected for script.', true);
+      return;
+    }
+    const prompt = scriptPrompt.value.trim();
+    if (!prompt) {
+      setStatus('Please provide a prompt.', true);
+      return;
+    }
+    const templateId = scriptTemplateSelect.value || undefined;
+    await requestJson('/api/script/generate', { model, prompt, tweetIds, templateId });
+    if (switchToScriptTab) {
+      setActiveTab('script');
+    }
+    await loadScriptHistory();
+  } catch (error) {
+    setStatus(error.message || 'Script generation failed.', true);
+  } finally {
+    setStatusSpinner(false);
+    setLoading(false);
   }
 }
 
@@ -742,10 +1178,13 @@ tabHandles.addEventListener('click', async () => {
     handlesGrid.innerHTML = '<div class="muted">Failed to load handles.</div>';
   }
 });
+tabBird.addEventListener('click', () => setActiveTab('bird'));
+tabForYou.addEventListener('click', () => setActiveTab('foryou'));
 tabScript.addEventListener('click', async () => {
   setActiveTab('script');
   await loadScriptSelections();
   await loadScriptHistory();
+  await loadTemplates();
 });
 
 historyForm.addEventListener('submit', async (event) => {
@@ -852,35 +1291,35 @@ scriptModelPresets.addEventListener('change', () => {
   }
 });
 
+scriptTemplateSelect.addEventListener('change', async () => {
+  const id = scriptTemplateSelect.value;
+  if (!id) {
+    return;
+  }
+  const response = await fetch('/api/templates');
+  const data = await response.json();
+  const templates = data.templates ?? [];
+  const template = templates.find((item) => item._id === id);
+  if (template) {
+    scriptTemplateName.value = template.name;
+    scriptTemplateContent.value = template.content;
+  }
+});
+
+scriptSaveTemplate.addEventListener('click', async () => {
+  const name = scriptTemplateName.value.trim();
+  const content = scriptTemplateContent.value.trim();
+  if (!name || !content) {
+    setStatus('Template name and content required.', true);
+    return;
+  }
+  await requestJson('/api/templates', { name, content });
+  await loadTemplates();
+});
+
 scriptForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  setLoading(true);
-  try {
-    const model = scriptModel.value.trim() || scriptModelPresets.value;
-    if (!model) {
-      setStatus('Please select a model.', true);
-      return;
-    }
-    const response = await fetch('/api/script/selections');
-    const selectionData = await response.json();
-    const selections = selectionData.selections ?? [];
-    const tweetIds = selections.map((item) => item.tweetId);
-    if (tweetIds.length === 0) {
-      setStatus('No tweets selected for script.', true);
-      return;
-    }
-    const prompt = scriptPrompt.value.trim();
-    if (!prompt) {
-      setStatus('Please provide a prompt.', true);
-      return;
-    }
-    await requestJson('/api/script/generate', { model, prompt, tweetIds });
-    await loadScriptHistory();
-  } catch (error) {
-    setStatus(error.message || 'Script generation failed.', true);
-  } finally {
-    setLoading(false);
-  }
+  await generateScriptFromSelections({ switchToScriptTab: true });
 });
 
 scriptClear.addEventListener('click', async () => {

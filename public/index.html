@@ -109,6 +109,9 @@
         font-size: 13px;
         color: var(--muted);
       }
+      .script-output {
+        white-space: pre-wrap;
+      }
       .card-mini button {
         width: fit-content;
       }
@@ -222,6 +225,22 @@
         margin: 16px 0;
         font-size: 0.95rem;
         color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(136, 163, 255, 0.25);
+        border-top-color: var(--accent);
+        border-radius: 999px;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
       .muted {
         color: var(--muted);
@@ -234,6 +253,19 @@
       .text-cell {
         max-width: 520px;
         white-space: pre-wrap;
+      }
+      .media-thumbs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+      .media-thumbs img {
+        width: 96px;
+        height: 96px;
+        object-fit: cover;
+        border-radius: 10px;
+        border: 1px solid var(--border);
       }
       .hidden {
         display: none;
@@ -253,6 +285,8 @@
           <button class="tab-button active" id="tab-analyze" type="button">Analyze</button>
           <button class="tab-button" id="tab-history" type="button">History</button>
           <button class="tab-button" id="tab-handles" type="button">Handles</button>
+          <button class="tab-button" id="tab-bird" type="button">Bird</button>
+          <button class="tab-button" id="tab-foryou" type="button">For You</button>
           <button class="tab-button" id="tab-script" type="button">Script</button>
         </div>
       </div>
@@ -328,7 +362,10 @@
           </form>
         </div>
 
-        <div class="status" id="status">Ready.</div>
+        <div class="status" id="status">
+          <span id="status-text">Ready.</span>
+          <span class="spinner hidden" id="status-spinner" aria-hidden="true"></span>
+        </div>
 
         <table>
           <thead>
@@ -383,6 +420,14 @@
             <div>
               <label for="history-min-engagement">Min engagement</label>
               <input id="history-min-engagement" type="number" min="0" value="0" />
+            </div>
+            <div>
+              <label for="history-source">Source</label>
+              <select id="history-source">
+                <option value="">All</option>
+                <option value="handles">Handles</option>
+                <option value="foryou">For You</option>
+              </select>
             </div>
             <div>
               <label for="history-page-size">Page size</label>
@@ -501,6 +546,87 @@
         </div>
       </section>
 
+      <section id="bird-view" class="hidden">
+        <div class="card">
+          <h2>Bird Search</h2>
+          <div class="helper">Scan current AI, business, and tool conversations.</div>
+          <div class="row" id="bird-presets">
+            <button type="button" class="secondary" data-query="(ai OR artificial intelligence) (launch OR release OR research OR breakthrough)">
+              AI
+            </button>
+            <button type="button" class="secondary" data-query="(business OR startup OR founder OR venture) (strategy OR growth OR revenue)">
+              Business
+            </button>
+            <button type="button" class="secondary" data-query="(ai tools OR ai apps OR copilots OR agents) (product OR demo OR launch)">
+              AI Tools & Apps
+            </button>
+          </div>
+          <form id="bird-form" class="form-row">
+            <div>
+              <label for="bird-query">Custom query</label>
+              <input id="bird-query" type="text" placeholder="keyword OR from:handle" />
+            </div>
+            <div>
+              <label for="bird-count">Count</label>
+              <input id="bird-count" type="number" min="1" max="100" value="20" />
+            </div>
+            <button id="bird-search-button" type="submit">Search</button>
+          </form>
+        </div>
+
+        <div class="status" id="bird-status">Ready.</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Text</th>
+              <th>Author</th>
+              <th>Time</th>
+              <th>Replies</th>
+              <th>Retweets</th>
+              <th>Likes</th>
+              <th>Engagement</th>
+              <th>Link</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="bird-results-body"></tbody>
+        </table>
+      </section>
+
+      <section id="foryou-view" class="hidden">
+        <div class="card">
+          <h2>For You Feed</h2>
+          <div class="helper">Uses your X session cookies from .env (AUTH_TOKEN + CT0).</div>
+          <form id="foryou-form" class="form-row">
+            <div>
+              <label for="foryou-count">Count</label>
+              <input id="foryou-count" type="number" min="1" max="100" value="20" />
+            </div>
+            <button id="foryou-refresh" type="submit">Refresh</button>
+          </form>
+        </div>
+
+        <div class="status" id="foryou-status">Ready.</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Text</th>
+              <th>Author</th>
+              <th>Time</th>
+              <th>Replies</th>
+              <th>Retweets</th>
+              <th>Likes</th>
+              <th>Engagement</th>
+              <th>Link</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="foryou-results-body"></tbody>
+        </table>
+      </section>
+
       <section id="script-view" class="hidden">
         <div class="card">
           <h2>Script Generator</h2>
@@ -519,10 +645,25 @@
               <select id="script-model-presets">
                 <option value="">Select preset</option>
                 <option value="openrouter/anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                <option value="openrouter/anthropic/claude-3.7-sonnet">Claude 3.7 Sonnet</option>
-                <option value="openrouter/kimiai/kimi-k2">Kimi K2.5</option>
+                <option value="anthropic/claude-3.7-sonnet">Claude 3.7 Sonnet</option>
+                <option value="moonshotai/kimi-k2.5">Kimi K2.5</option>
               </select>
             </div>
+            <div>
+              <label for="script-template-select">Template</label>
+              <select id="script-template-select">
+                <option value="">Select template</option>
+              </select>
+            </div>
+            <div>
+              <label for="script-template-name">Template name</label>
+              <input id="script-template-name" type="text" placeholder="Reels Script v1" />
+            </div>
+            <div>
+              <label for="script-template-content">Template content</label>
+              <textarea id="script-template-content" placeholder="Template instructions..."></textarea>
+            </div>
+            <button id="script-save-template" type="button" class="secondary">Save Template</button>
             <div>
               <label for="script-prompt">Prompt</label>
               <textarea id="script-prompt" placeholder="Write a YouTube script that..."></textarea>
@@ -535,7 +676,10 @@
         <div class="card">
           <h2>Selected Tweets</h2>
           <div class="helper">Tweets you add from Handles will appear here.</div>
-          <div id="script-selection-list" class="row"></div>
+          <div class="row">
+            <div id="script-selection-list" class="row"></div>
+            <button id="script-generate-inline" type="submit" form="script-form">Generate Script</button>
+          </div>
         </div>
 
         <div class="card">

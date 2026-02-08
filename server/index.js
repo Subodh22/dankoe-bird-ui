@@ -126,6 +126,24 @@ async function callOpenRouter({ model, messages }) {
   return data?.choices?.[0]?.message?.content ?? '';
 }
 
+async function summarizeTweets({ model, tweets }) {
+  const content = tweets
+    .map((tweet) => `@${tweet.authorUsername}: ${tweet.text}`)
+    .join('\n');
+
+  const messages = [
+    {
+      role: 'system',
+      content:
+        'Summarize the tweets into bullet points, key themes, and notable quotes. Return JSON with fields: summary, keyPoints, hashtags, mentions.',
+    },
+    { role: 'user', content },
+  ];
+
+  const output = await callOpenRouter({ model, messages });
+  return output;
+}
+
 async function getTweetsByIds(tweetIds) {
   if (!tweetIds.length) {
     return [];
@@ -150,6 +168,17 @@ function mapTweet(tweet) {
     retweetCount: tweet.retweetCount ?? 0,
     likeCount: tweet.likeCount ?? 0,
     url: username && id ? `https://x.com/${username}/status/${id}` : null,
+    media: Array.isArray(tweet.media)
+      ? tweet.media.map((media) => ({
+          type: media.type,
+          url: media.url,
+          previewUrl: media.previewUrl,
+          videoUrl: media.videoUrl,
+          width: media.width,
+          height: media.height,
+          durationMs: media.durationMs,
+        }))
+      : [],
   };
 }
 
@@ -269,6 +298,46 @@ app.post('/api/search', async (req, res, next) => {
       tweets: result.tweets.map(mapTweet),
       nextCursor: result.nextCursor ?? null,
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/home', async (req, res, next) => {
+  try {
+    const { count } = req.body ?? {};
+    const client = await getClient();
+    const result = await client.getHomeTimeline(parseCount(count));
+    if (!result.success) {
+      return res.status(500).json({ error: result.error ?? 'Home timeline failed' });
+    }
+    return res.json({ tweets: result.tweets.map(mapTweet) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.all('/api/cron/foryou', async (req, res, next) => {
+  try {
+    const secret = process.env.CRON_SECRET;
+    if (!secret || req.headers['x-cron-secret'] !== secret) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const count = parseCount(req.query?.count, 50);
+    const client = await getClient();
+    const result = await client.getHomeTimeline(count);
+    if (!result.success) {
+      return res.status(500).json({ error: result.error ?? 'Home timeline failed' });
+    }
+
+    const now = Date.now();
+    const normalized = result.tweets.map((tweet) => ({
+      ...mapTweetForStorage(tweet),
+      sources: ['foryou'],
+    }));
+    const stored = await convex.mutation('tweets:storeTweets', { tweets: normalized });
+    return res.json({ stored, count: normalized.length });
   } catch (error) {
     return next(error);
   }
@@ -460,6 +529,7 @@ app.post('/api/history', async (req, res, next) => {
       text,
       start,
       end,
+      source,
       minLikes,
       minRetweets,
       minReplies,
@@ -477,6 +547,7 @@ app.post('/api/history', async (req, res, next) => {
 
     const rows = await convex.query('tweets:getHistory', {
       handles,
+      source: typeof source === 'string' ? source : undefined,
       since: startMs,
       until: endMs,
       text: typeof text === 'string' ? text : undefined,
@@ -538,7 +609,7 @@ app.post('/api/history', async (req, res, next) => {
 
 app.post('/api/script/generate', async (req, res, next) => {
   try {
-    const { model, prompt, tweetIds } = req.body ?? {};
+    const { model, prompt, tweetIds, templateId } = req.body ?? {};
     if (!model || typeof model !== 'string') {
       return res.status(400).json({ error: 'model is required' });
     }
@@ -554,20 +625,65 @@ app.post('/api/script/generate', async (req, res, next) => {
       return res.status(400).json({ error: 'No tweets found for selection' });
     }
     const context = selected.map((tweet) => {
-      return `@${tweet.authorUsername}: ${tweet.text}`;
+      return {
+        author: `@${tweet.authorUsername}`,
+        text: tweet.text,
+        likes: tweet.likeCount,
+        retweets: tweet.retweetCount,
+        replies: tweet.replyCount,
+        engagement: tweet.engagement,
+        url: tweet.url,
+      };
     });
+
+    let templateContent = '';
+    if (templateId) {
+      const templates = await convex.query('templates:listTemplates');
+      const template = templates.find((item) => item._id === templateId);
+      if (template) {
+        templateContent = template.content;
+      }
+    }
+
+    const summary = await summarizeTweets({ model, tweets: selected });
 
     const messages = [
       { role: 'system', content: 'You are a helpful YouTube script writer.' },
       {
         role: 'user',
-        content: `${prompt}\n\nTweets:\n${context.join('\n')}`,
+        content: `${prompt}\n\nTemplate:\n${templateContent}\n\nTweet Context:\n${JSON.stringify(
+          context,
+          null,
+          2,
+        )}\n\nSummary JSON:\n${summary}`,
       },
     ];
 
     const output = await callOpenRouter({ model, messages });
     await convex.mutation('scripts:saveScript', { model, prompt, output });
     return res.json({ output });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/templates', async (req, res, next) => {
+  try {
+    const templates = await convex.query('templates:listTemplates');
+    return res.json({ templates });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/templates', async (req, res, next) => {
+  try {
+    const { name, content } = req.body ?? {};
+    if (!name || !content) {
+      return res.status(400).json({ error: 'name and content are required' });
+    }
+    const result = await convex.mutation('templates:addTemplate', { name, content });
+    return res.json(result);
   } catch (error) {
     return next(error);
   }

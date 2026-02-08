@@ -13,6 +13,7 @@ const tweetInput = v.object({
   likeCount: v.number(),
   engagement: v.number(),
   url: v.union(v.string(), v.null()),
+  sources: v.optional(v.array(v.string())),
 });
 
 export const storeTweets = mutation({
@@ -28,10 +29,19 @@ export const storeTweets = mutation({
         .unique();
 
       if (existing) {
-        await ctx.db.patch(existing._id, tweet);
+        const nextSources = Array.from(
+          new Set([...(existing.sources ?? ['handles']), ...(tweet.sources ?? ['handles'])]),
+        );
+        await ctx.db.patch(existing._id, {
+          ...tweet,
+          sources: nextSources,
+        });
         updated += 1;
       } else {
-        await ctx.db.insert('tweets', tweet);
+        await ctx.db.insert('tweets', {
+          ...tweet,
+          sources: tweet.sources ?? ['handles'],
+        });
         inserted += 1;
       }
     }
@@ -68,6 +78,7 @@ export const getTweetsByWindow = query({
 export const getHistory = query({
   args: {
     handles: v.optional(v.array(v.string())),
+    source: v.optional(v.string()),
     since: v.optional(v.number()),
     until: v.optional(v.number()),
     text: v.optional(v.string()),
@@ -78,10 +89,11 @@ export const getHistory = query({
   },
   handler: async (
     ctx,
-    { handles, since, until, text, minLikes, minRetweets, minReplies, minEngagement },
+    { handles, source, since, until, text, minLikes, minRetweets, minReplies, minEngagement },
   ) => {
     const start = since ?? 0;
     const normalizedText = text?.trim().toLowerCase();
+    const normalizedSource = source?.trim().toLowerCase();
 
     let rows = [];
     if (handles && handles.length > 0) {
@@ -100,6 +112,12 @@ export const getHistory = query({
     }
 
     const filtered = rows.filter((tweet) => {
+      if (normalizedSource) {
+        const sources = (tweet.sources ?? ['handles']).map((entry) => entry.toLowerCase());
+        if (!sources.includes(normalizedSource)) {
+          return false;
+        }
+      }
       if (until && tweet.createdAt > until) {
         return false;
       }
