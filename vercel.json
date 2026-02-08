@@ -15,11 +15,8 @@
   "crons": [
    
     {
-      "path": "/api/cron/foryou",
-      "schedule": "0 21 * * *",
-      "headers": {
-        "x-cron-secret": "@cron_secret"
-      }
+      "path": "/api/cron/foryou?secret=@cron_secret",
+      "schedule": "0 21 * * *"
     }
   ]
 }

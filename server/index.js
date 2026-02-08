@@ -500,7 +500,8 @@ app.post('/api/foryou/score', async (req, res, next) => {
 app.all('/api/cron/foryou', async (req, res, next) => {
   try {
     const secret = process.env.CRON_SECRET;
-    if (!secret || req.headers['x-cron-secret'] !== secret) {
+    const provided = req.query?.secret;
+    if (!secret || provided !== secret) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
