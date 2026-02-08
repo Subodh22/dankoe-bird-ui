@@ -160,3 +160,18 @@ export const getTweetsByIds = query({
     return results;
   },
 });
+
+export const removeTweet = mutation({
+  args: { tweetId: v.string() },
+  handler: async (ctx, { tweetId }) => {
+    const existing = await ctx.db
+      .query('tweets')
+      .withIndex('by_tweet', (q) => q.eq('tweetId', tweetId))
+      .unique();
+    if (!existing) {
+      return { removed: false };
+    }
+    await ctx.db.delete(existing._id);
+    return { removed: true };
+  },
+});

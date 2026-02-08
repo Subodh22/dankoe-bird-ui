@@ -98,6 +98,14 @@ let handlesHistoryPage = 1;
 let handlesHistoryTotalPages = 0;
 let handlesHistoryFilters = null;
 
+function toDateTimeLocal(value) {
+  const date = new Date(value);
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}`;
+}
+
 function setStatus(message, isError = false) {
   if (statusText) {
     statusText.textContent = message;
@@ -362,6 +370,22 @@ function renderHistoryResults(tweets) {
       linkCell.textContent = '';
     }
     row.appendChild(linkCell);
+
+    const actionsCell = document.createElement('td');
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'secondary';
+    removeButton.textContent = 'Remove';
+    removeButton.addEventListener('click', async () => {
+      try {
+        await requestJson('/api/history/remove', { tweetId: tweet.tweetId ?? tweet.id });
+        await fetchHistory(historyPage);
+      } catch (error) {
+        setHistoryStatus(error.message || 'Failed to remove tweet.', true);
+      }
+    });
+    actionsCell.appendChild(removeButton);
+    row.appendChild(actionsCell);
 
     historyResultsBody.appendChild(row);
   }
@@ -968,6 +992,16 @@ async function loadHandlesGrid() {
     });
     card.appendChild(button);
 
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'secondary';
+    removeButton.textContent = 'Remove';
+    removeButton.addEventListener('click', async () => {
+      await requestJson('/api/handles/remove', { handle: handle.handle });
+      await loadHandlesGrid();
+    });
+    card.appendChild(removeButton);
+
     handlesGrid.appendChild(card);
   }
 }
@@ -1259,6 +1293,11 @@ saveHandlesButton.addEventListener('click', async () => {
 tabAnalyze.addEventListener('click', () => setActiveTab('analyze'));
 tabHistory.addEventListener('click', async () => {
   setActiveTab('history');
+  if (historyStart && !historyStart.value) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    historyStart.value = toDateTimeLocal(yesterday);
+  }
   if (historySort && !historySort.value) {
     historySort.value = 'retweets';
   }

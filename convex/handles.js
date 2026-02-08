@@ -42,6 +42,25 @@ export const listHandles = query({
   },
 });
 
+export const removeHandle = mutation({
+  args: { handle: v.string() },
+  handler: async (ctx, { handle }) => {
+    const normalized = normalizeHandle(handle);
+    if (!normalized) {
+      return { removed: false };
+    }
+    const existing = await ctx.db
+      .query('handles')
+      .withIndex('by_handle', (q) => q.eq('handle', normalized))
+      .unique();
+    if (!existing) {
+      return { removed: false };
+    }
+    await ctx.db.patch(existing._id, { active: false });
+    return { removed: true };
+  },
+});
+
 export const listHandlesWithStats = query({
   args: { since: v.optional(v.number()) },
   handler: async (ctx, { since }) => {

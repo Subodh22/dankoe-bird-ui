@@ -562,6 +562,19 @@ app.post('/api/handles', async (req, res, next) => {
   }
 });
 
+app.post('/api/handles/remove', async (req, res, next) => {
+  try {
+    const { handle } = req.body ?? {};
+    if (!handle || typeof handle !== 'string') {
+      return res.status(400).json({ error: 'handle is required' });
+    }
+    const result = await convex.mutation('handles:removeHandle', { handle });
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/api/handles', async (req, res, next) => {
   try {
     const { since } = req.query ?? {};
@@ -797,6 +810,19 @@ app.post('/api/history', async (req, res, next) => {
       pageSize: size,
       totalPages,
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/history/remove', async (req, res, next) => {
+  try {
+    const { tweetId } = req.body ?? {};
+    if (!tweetId) {
+      return res.status(400).json({ error: 'tweetId is required' });
+    }
+    const result = await convex.mutation('tweets:removeTweet', { tweetId });
+    return res.json(result);
   } catch (error) {
     return next(error);
   }
