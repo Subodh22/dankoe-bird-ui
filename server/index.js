@@ -99,6 +99,114 @@ function normalizeOptionalNumber(value) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function scoreTweetForDanKoe(tweet) {
+  const text = (tweet.text ?? '').toLowerCase();
+  const length = text.length;
+  const engagement = tweet.engagement ?? engagementScore(tweet);
+
+  const positives = [
+    'most people',
+    'counterintuitive',
+    'lesson',
+    'mistake',
+    'framework',
+    'principle',
+    'rule',
+    'system',
+    'leverage',
+    'skill',
+    'create',
+    'build',
+    'audience',
+    'distribution',
+    'offer',
+    'pricing',
+    'brand',
+    'writing',
+    'because',
+    'therefore',
+    'so that',
+    'here is',
+    'here’s',
+    'step',
+    'steps',
+    'why',
+    'how',
+  ];
+
+  const negatives = [
+    'giveaway',
+    'airdrop',
+    'free money',
+    'dm me',
+    'join my',
+    'link in bio',
+    'crypto pump',
+    'nft',
+    'motivation',
+    'hustle',
+    'grind',
+    'quote',
+  ];
+
+  let contentScore = 0;
+  for (const word of positives) {
+    if (text.includes(word)) {
+      contentScore += 1;
+    }
+  }
+  for (const word of negatives) {
+    if (text.includes(word)) {
+      contentScore -= 1.5;
+    }
+  }
+
+  if (length >= 120 && length <= 500) {
+    contentScore += 2;
+  } else if (length < 60) {
+    contentScore -= 1;
+  }
+
+  if (/\d+/.test(text)) {
+    contentScore += 0.5;
+  }
+
+  const normalizedContent = Math.max(0, Math.min(1, contentScore / 6));
+
+  return {
+    engagement,
+    contentScore: normalizedContent,
+  };
+}
+
+function buildSelectionReasoning(tweet, scores) {
+  const reasons = [];
+  if (scores.engagementScore > 0.6) {
+    reasons.push('Strong engagement relative to feed');
+  }
+  if (scores.contentScore > 0.5) {
+    reasons.push('Clear insight with actionable framing');
+  }
+  if (/\d+/.test((tweet.text ?? '').toLowerCase())) {
+    reasons.push('Specific details make it teachable');
+  }
+  if (reasons.length === 0) {
+    reasons.push('Balanced signal across engagement and clarity');
+  }
+  return reasons.join(' • ');
+}
+
+function inferVideoScope(tweet, scores) {
+  const text = (tweet.text ?? '').toLowerCase();
+  if (text.includes('?') || text.includes('hot take') || text.includes('thoughts')) {
+    return 'Reaction video: respond to the claim and add your perspective';
+  }
+  if (scores.contentScore > 0.55) {
+    return 'Explanation video: break down the idea and show how to apply it';
+  }
+  return 'Reaction video: summarize and share a quick opinion';
+}
+
 async function callOpenRouter({ model, messages }) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -281,6 +389,21 @@ async function fetchAndStoreTweets(handles) {
   });
 }
 
+async function fetchAndStoreForYou(count) {
+  const client = await getClient();
+  const result = await client.getHomeTimeline(parseCount(count));
+  if (!result.success) {
+    throw new Error(result.error ?? 'Home timeline failed');
+  }
+
+  const normalized = result.tweets.map((tweet) => ({
+    ...mapTweetForStorage(tweet),
+    sources: ['foryou'],
+  }));
+  const stored = await convex.mutation('tweets:storeTweets', { tweets: normalized });
+  return { stored, count: normalized.length };
+}
+
 app.post('/api/search', async (req, res, next) => {
   try {
     const { query, count } = req.body ?? {};
@@ -317,6 +440,63 @@ app.post('/api/home', async (req, res, next) => {
   }
 });
 
+app.post('/api/foryou/trigger', async (req, res, next) => {
+  try {
+    const { count } = req.body ?? {};
+    const result = await fetchAndStoreForYou(count);
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/foryou/score', async (req, res, next) => {
+  try {
+    const { count, top } = req.body ?? {};
+    const limit = parseCount(count, 100);
+    const topCount = Math.max(1, Math.min(50, clampNumber(top, 20)));
+
+    const rows = await convex.query('tweets:getHistory', {
+      source: 'foryou',
+    });
+    const candidates = rows.slice(0, limit);
+    if (candidates.length === 0) {
+      return res.json({ selected: 0, total: 0 });
+    }
+
+    const maxEngagement = Math.max(...candidates.map((tweet) => scoreTweetForDanKoe(tweet).engagement), 1);
+
+    const scored = candidates.map((tweet) => {
+      const { engagement, contentScore } = scoreTweetForDanKoe(tweet);
+      const engagementScore = Math.log1p(engagement) / Math.log1p(maxEngagement);
+      const score = 0.6 * engagementScore + 0.4 * contentScore;
+      return { tweet, score, engagementScore, contentScore };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const selected = scored.slice(0, topCount);
+
+    let added = 0;
+    for (const entry of selected) {
+      const reasoning = buildSelectionReasoning(entry.tweet, entry);
+      const videoScope = inferVideoScope(entry.tweet, entry);
+      const result = await convex.mutation('scripts:addSelection', {
+        tweetId: entry.tweet.tweetId ?? entry.tweet.id,
+        handle: entry.tweet.authorUsername ?? entry.tweet.handle ?? '',
+        reasoning,
+        videoScope,
+      });
+      if (result?.added) {
+        added += 1;
+      }
+    }
+
+    return res.json({ selected: added, total: candidates.length });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.all('/api/cron/foryou', async (req, res, next) => {
   try {
     const secret = process.env.CRON_SECRET;
@@ -325,19 +505,8 @@ app.all('/api/cron/foryou', async (req, res, next) => {
     }
 
     const count = parseCount(req.query?.count, 50);
-    const client = await getClient();
-    const result = await client.getHomeTimeline(count);
-    if (!result.success) {
-      return res.status(500).json({ error: result.error ?? 'Home timeline failed' });
-    }
-
-    const now = Date.now();
-    const normalized = result.tweets.map((tweet) => ({
-      ...mapTweetForStorage(tweet),
-      sources: ['foryou'],
-    }));
-    const stored = await convex.mutation('tweets:storeTweets', { tweets: normalized });
-    return res.json({ stored, count: normalized.length });
+    const result = await fetchAndStoreForYou(count);
+    return res.json(result);
   } catch (error) {
     return next(error);
   }

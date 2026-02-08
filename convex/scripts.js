@@ -5,8 +5,10 @@ export const addSelection = mutation({
   args: {
     tweetId: v.string(),
     handle: v.string(),
+    reasoning: v.optional(v.string()),
+    videoScope: v.optional(v.string()),
   },
-  handler: async (ctx, { tweetId, handle }) => {
+  handler: async (ctx, { tweetId, handle, reasoning, videoScope }) => {
     const existing = await ctx.db
       .query('scriptSelections')
       .withIndex('by_tweet', (q) => q.eq('tweetId', tweetId))
@@ -18,6 +20,8 @@ export const addSelection = mutation({
       tweetId,
       handle,
       addedAt: Date.now(),
+      reasoning,
+      videoScope,
     });
     return { added: true };
   },

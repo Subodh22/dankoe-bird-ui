@@ -64,6 +64,8 @@ const birdSearchButton = document.getElementById('bird-search-button');
 const forYouForm = document.getElementById('foryou-form');
 const forYouCount = document.getElementById('foryou-count');
 const forYouRefresh = document.getElementById('foryou-refresh');
+const forYouSave = document.getElementById('foryou-save');
+const forYouScore = document.getElementById('foryou-score');
 const forYouResultsBody = document.getElementById('foryou-results-body');
 const forYouStatus = document.getElementById('foryou-status');
 const scriptForm = document.getElementById('script-form');
@@ -146,6 +148,12 @@ function setLoading(isLoading) {
   }
   if (forYouRefresh) {
     forYouRefresh.disabled = isLoading;
+  }
+  if (forYouSave) {
+    forYouSave.disabled = isLoading;
+  }
+  if (forYouScore) {
+    forYouScore.disabled = isLoading;
   }
   scriptGenerate.disabled = isLoading;
   scriptClear.disabled = isLoading;
@@ -692,6 +700,33 @@ async function fetchForYou(count) {
   }
 }
 
+async function runForYouSave(count) {
+  setLoading(true);
+  setForYouStatus('Saving For You feed...');
+  try {
+    const data = await requestJson('/api/foryou/trigger', { count });
+    setForYouStatus(`Saved ${data?.stored?.inserted ?? 0} new tweets.`);
+  } catch (error) {
+    setForYouStatus(error.message || 'For You save failed.', true);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function scoreForYouTweets({ count = 100, top = 20 } = {}) {
+  setLoading(true);
+  setForYouStatus('Scoring tweets for scripts...');
+  try {
+    const data = await requestJson('/api/foryou/score', { count, top });
+    setForYouStatus(`Selected ${data.selected ?? 0} tweets for scripts.`);
+    await loadScriptSelections();
+  } catch (error) {
+    setForYouStatus(error.message || 'Tweet scoring failed.', true);
+  } finally {
+    setLoading(false);
+  }
+}
+
 searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   setLoading(true);
@@ -760,6 +795,19 @@ if (forYouForm) {
     event.preventDefault();
     const count = forYouCount.value;
     await fetchForYou(count);
+  });
+}
+
+if (forYouSave) {
+  forYouSave.addEventListener('click', async () => {
+    const count = forYouCount.value;
+    await runForYouSave(count);
+  });
+}
+
+if (forYouScore) {
+  forYouScore.addEventListener('click', async () => {
+    await scoreForYouTweets({ count: 100, top: 20 });
   });
 }
 
@@ -941,6 +989,37 @@ async function loadScriptSelections() {
     text.className = 'metric';
     text.textContent = item.tweet?.text ?? 'Tweet not found';
     wrapper.appendChild(text);
+
+    const metrics = document.createElement('div');
+    metrics.className = 'metric';
+    const replies = item.tweet?.replyCount ?? 0;
+    const retweets = item.tweet?.retweetCount ?? 0;
+    const likes = item.tweet?.likeCount ?? 0;
+    const engagement = item.tweet?.engagement ?? replies + retweets + likes;
+    metrics.textContent = `Replies ${replies} · Retweets ${retweets} · Likes ${likes} · Engagement ${engagement}`;
+    wrapper.appendChild(metrics);
+
+    if (item.tweet?.url) {
+      const link = document.createElement('a');
+      link.href = item.tweet.url;
+      link.textContent = 'Open tweet';
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      wrapper.appendChild(link);
+    }
+
+    if (item.reasoning) {
+      const reasoning = document.createElement('div');
+      reasoning.className = 'metric';
+      reasoning.textContent = `Why: ${item.reasoning}`;
+      wrapper.appendChild(reasoning);
+    }
+    if (item.videoScope) {
+      const scope = document.createElement('div');
+      scope.className = 'metric';
+      scope.textContent = `Scope: ${item.videoScope}`;
+      wrapper.appendChild(scope);
+    }
 
     const actions = document.createElement('div');
     actions.className = 'row';

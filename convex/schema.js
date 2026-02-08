@@ -29,6 +29,8 @@ export default defineSchema({
     tweetId: v.string(),
     handle: v.string(),
     addedAt: v.number(),
+    reasoning: v.optional(v.string()),
+    videoScope: v.optional(v.string()),
   }).index('by_tweet', ['tweetId']),
   scripts: defineTable({
     model: v.string(),
