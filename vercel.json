@@ -13,13 +13,7 @@
     }
   ],
   "crons": [
-    {
-      "path": "/api/cron/fetch",
-      "schedule": "0 20 * * *",
-      "headers": {
-        "x-cron-secret": "@cron_secret"
-      }
-    },
+   
     {
       "path": "/api/cron/foryou",
       "schedule": "0 21 * * *",

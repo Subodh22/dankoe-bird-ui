@@ -32,6 +32,8 @@ const historyMinRetweets = document.getElementById('history-min-retweets');
 const historyMinReplies = document.getElementById('history-min-replies');
 const historyMinEngagement = document.getElementById('history-min-engagement');
 const historySource = document.getElementById('history-source');
+const historySort = document.getElementById('history-sort');
+const historySortDir = document.getElementById('history-sort-dir');
 const historyPageSize = document.getElementById('history-page-size');
 const historyResultsBody = document.getElementById('history-results-body');
 const historyPrev = document.getElementById('history-prev');
@@ -690,8 +692,13 @@ async function fetchForYou(count) {
   setLoading(true);
   setForYouStatus('Loading For You feed...');
   try {
-    const data = await requestJson('/api/home', { count });
-    renderForYouResults(data.tweets);
+    const data = await requestJson('/api/foryou/trigger', { count });
+    if (data?.tweets) {
+      renderForYouResults(data.tweets);
+    } else {
+      const fallback = await requestJson('/api/home', { count });
+      renderForYouResults(fallback.tweets);
+    }
   } catch (error) {
     forYouResultsBody.innerHTML = '';
     setForYouStatus(error.message || 'For You feed failed.', true);
@@ -858,6 +865,8 @@ function getHistoryFilters() {
     minReplies: normalizeMinValue(historyMinReplies.value),
     minEngagement: normalizeMinValue(historyMinEngagement.value),
     source: historySource?.value || undefined,
+    sortBy: historySort?.value || 'retweets',
+    sortDir: historySortDir?.value || 'desc',
     pageSize: historyPageSize.value || 20,
   };
   return filters;
@@ -1248,7 +1257,22 @@ saveHandlesButton.addEventListener('click', async () => {
 });
 
 tabAnalyze.addEventListener('click', () => setActiveTab('analyze'));
-tabHistory.addEventListener('click', () => setActiveTab('history'));
+tabHistory.addEventListener('click', async () => {
+  setActiveTab('history');
+  if (historySort && !historySort.value) {
+    historySort.value = 'retweets';
+  }
+  if (historySortDir && !historySortDir.value) {
+    historySortDir.value = 'desc';
+  }
+  historyPage = 1;
+  historyLastFilters = getHistoryFilters();
+  try {
+    await fetchHistory(historyPage);
+  } catch (error) {
+    setHistoryStatus(error.message || 'History search failed.', true);
+  }
+});
 tabHandles.addEventListener('click', async () => {
   setActiveTab('handles');
   try {

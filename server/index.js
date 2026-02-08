@@ -401,7 +401,7 @@ async function fetchAndStoreForYou(count) {
     sources: ['foryou'],
   }));
   const stored = await convex.mutation('tweets:storeTweets', { tweets: normalized });
-  return { stored, count: normalized.length };
+  return { stored, count: normalized.length, tweets: result.tweets.map(mapTweet) };
 }
 
 app.post('/api/search', async (req, res, next) => {
@@ -699,6 +699,8 @@ app.post('/api/history', async (req, res, next) => {
       start,
       end,
       source,
+      sortBy,
+      sortDir,
       minLikes,
       minRetweets,
       minReplies,
@@ -759,10 +761,33 @@ app.post('/api/history', async (req, res, next) => {
       };
     });
 
-    const total = enriched.length;
+    const direction = sortDir === 'asc' ? 1 : -1;
+    const sortKey = typeof sortBy === 'string' ? sortBy : 'createdAt';
+    const sorted = [...enriched].sort((a, b) => {
+      const getValue = (item) => {
+        switch (sortKey) {
+          case 'likes':
+            return item.likeCount ?? 0;
+          case 'retweets':
+            return item.retweetCount ?? 0;
+          case 'replies':
+            return item.replyCount ?? 0;
+          case 'engagement':
+            return item.engagement ?? 0;
+          case 'outlier':
+            return item.outlierScore ?? 0;
+          case 'createdAt':
+          default:
+            return item.createdAt ?? 0;
+        }
+      };
+      return (getValue(a) - getValue(b)) * direction;
+    });
+
+    const total = sorted.length;
     const totalPages = Math.ceil(total / size);
     const offset = (pageNumber - 1) * size;
-    const paged = enriched.slice(offset, offset + size);
+    const paged = sorted.slice(offset, offset + size);
 
     return res.json({
       tweets: paged,
